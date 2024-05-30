@@ -1,12 +1,7 @@
 # This workflow uses actions to build and publish airflow image on Docker Hub.
 name: Airflow
 run-name: Publish Docker image Airflow
-on: 
-  workflow_dispatch: {}
-  push: 
-    branches:
-      - 'main'
-
+on: [push]
 jobs:
   push_to_registry:
     name: Push Docker image Airflow to Docker Hub

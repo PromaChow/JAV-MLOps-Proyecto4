@@ -6,7 +6,8 @@ x-airflow-common:
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   #image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.6.0}
-  build: ./docker/airflow
+  # build: ./docker/airflow
+  image: jpnieto11/mlops-proy04-airflow:prueba-githubactions
   # build: .
   environment:
     &airflow-common-env
@@ -90,7 +91,8 @@ services:
       - ./db_clean_data:/var/lib/mysql
 
   fast_api:
-    build: ./docker/fast_api
+    # build: ./docker/fast_api
+    image: jpnieto11/mlops-proy04-fast-api:prueba-githubactions
     ports:
       - 8086:8086
     container_name: fast_api
@@ -105,7 +107,8 @@ services:
 
   streamlit:
     restart: always
-    build: ./docker/streamlit
+    # build: ./docker/streamlit
+    image: jpnieto11/mlops-proy04-streamlit:prueba-githubactions
     ports:
       - 8087:8087
     container_name: streamlit_app
@@ -135,8 +138,8 @@ services:
 
   mlflow:
     restart: always
-    build: ./docker/mlflow
-    image: mlflow
+    # build: ./docker/mlflow
+    image: jpnieto11/mlops-proy04-mlflow:prueba-githubactions
     container_name: mlflow
     depends_on:
       - db
@@ -163,7 +166,8 @@ services:
       --default-artifact-root s3://${MLFLOW_BUCKET_NAME}/
   
   work_jupyter:
-    build: ./docker/jupyter
+    # build: ./docker/jupyter
+    image: jpnieto11/mlops-proy04-jupyter:prueba-githubactions
     volumes:
       - ./:/home/jovyan/work
     ports:

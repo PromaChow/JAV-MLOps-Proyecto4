@@ -1,11 +1,10 @@
-# This workflow uses actions to build and publish airflow image on Docker Hub.
-name: Airflow
-run-name: Publish Docker image Airflow
-on: workflow_dispatch
-
+# This workflow uses actions to build and publish MLFLOW image on Docker Hub.
+name: ml flow
+run-name: Publish Docker image ml flow
+on: [push]
 jobs:
   push_to_registry:
-    name: Push Docker image Airflow to Docker Hub
+    name: Push Docker image ml flow to Docker Hub
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -17,21 +16,21 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
         with:
-          username: ${DOCKER_USERNAME}
-          password: ${DOCKER_PASSWORD}
+          username: jpnieto11
+          password: V1sualStud1oC0de
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          images: jpnieto11/mlops-proy04-airflow
+          images: jpnieto11/mlops-proy04-mlflow
 
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           context: .
-          file: ./docker/airflow/Dockerfile
+          file: ./docker/mlflow/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

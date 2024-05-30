@@ -3,17 +3,17 @@ from airflow.operators.python import PythonOperator
 from airflow.hooks.mysql_hook import MySqlHook
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.compose import ColumnTransformer
-from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import recall_score, classification_report
 from mlflow.models import infer_signature
 from mlflow import MlflowClient
 from datetime import datetime
-import os, re
+import os
 import pandas as pd
 import numpy as np
 import mlflow
+import shap
 
 def get_data(table_name):
     mysql_hook = MySqlHook(mysql_conn_id='clean_data', schema='clean_data-proyecto-3')
@@ -64,11 +64,39 @@ def train_model():
         pipe.fit(X_train, y_train)
         y_pred_val = pipe.predict(X_val)
         y_pred_test = pipe.predict(X_test)
+
+        summary = shap.kmeans(X_train, 50)
+        explainer = shap.KernelExplainer(pipe.predict, summary)
+        shap_values = explainer.shap_values(X_val).mean(0).tolist()
+
+        # Update model if any SHAP value changes more than 20%
+        retrain = False
+        try:
+            client = MlflowClient()
+            model_name = "diabetes-random-forest-model"
+            model_version_details = client.get_model_version(name=model_name, stages=["Production"])
+            run_id = model_version_details.run_id
+            for idx, new_value in enumerate(shap_values):
+                metric_data = client.get_metric_history(run_id=run_id, key=f"shap_{idx}")
+                old_value = metric_data[0].value
+                if abs(new_value - old_value) > old_value*0.2:
+                    retrain = True
+                    break
+        # Exception catches case where model does not exist yet
+        except:
+            print("The previous model could not be loaded. The model will be retrained (or trained for the first time).")
+            retrain = True
+        if not retrain:
+            return
+
+        for idx, value in enumerate(shap_values):
+            mlflow.log_metric(f"shap_{idx}", value)
         mlflow.log_metric("recall_score_val", recall_score(y_val,y_pred_val))
         print('recall_score_val:', recall_score(y_val,y_pred_val))
         mlflow.log_metric("recall_score_test", recall_score(y_test,y_pred_test))
         print('recall_score_val:', recall_score(y_test,y_pred_test))
         print(classification_report(y_val,y_pred_val))
+
         signature = infer_signature(X_val, y_pred_val)
         mlflow.sklearn.log_model(
             sk_model=pipe,

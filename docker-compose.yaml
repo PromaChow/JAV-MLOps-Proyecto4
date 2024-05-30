@@ -57,6 +57,66 @@ services:
     volumes:
       - ./db_ml_data:/var/lib/mysql
 
+  db_raw:
+    restart: always
+    image: mysql/mysql-server:5.7.28
+    container_name: raw_data_db
+    ports:
+      - "${MYSQL_RAW_PORT}:3306"
+    networks:
+      - backend
+    environment:
+      - MYSQL_DATABASE=${MYSQL_RAW_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./db_raw_data:/var/lib/mysql
+  
+  db_clean:
+    restart: always
+    image: mysql/mysql-server:5.7.28
+    container_name: clean_data_db
+    ports:
+      - "${MYSQL_CLEAN_PORT}:3306"
+    networks:
+      - backend
+    environment:
+      - MYSQL_DATABASE=${MYSQL_CLEAN_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./db_clean_data:/var/lib/mysql
+
+  fast_api:
+    build: ./docker/fast_api
+    ports:
+      - 8086:8086
+    container_name: fast_api
+    depends_on:
+      - db_raw
+      - db_clean
+    networks:
+      - backend
+    volumes:
+      - ./src/back:/opt/code/
+    command: "uvicorn opt.code.main:app --host 0.0.0.0 --port 8086 --reload"
+
+  streamlit:
+    restart: always
+    build: ./docker/streamlit
+    ports:
+      - 8087:8087
+    container_name: streamlit_app
+    depends_on:
+      - fast_api
+    networks:
+      - backend
+    volumes:
+      - ./src/front:/opt/code/
+    command: "streamlit run /opt/code/main.py --server.port=8087 --server.address=0.0.0.0 "
+
   minio:
     container_name: minio
     command: server /data --console-address ":${MINIO_CONSOLE_PORT}" --address ':${MINIO_PORT}'
@@ -342,6 +402,8 @@ services:
 
 volumes:
   postgres-db-volume:
+  db_raw_data:
+  db_clean_data:
   db_ml_data:
   minio_data:
 

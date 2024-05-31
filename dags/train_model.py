@@ -1,11 +1,11 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.hooks.mysql_hook import MySqlHook
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import recall_score, classification_report
+from sklearn.metrics import mean_absolute_error
 from mlflow.models import infer_signature
 from mlflow import MlflowClient
 from datetime import datetime
@@ -16,21 +16,16 @@ import mlflow
 import shap
 
 def get_data(table_name):
-    mysql_hook = MySqlHook(mysql_conn_id='clean_data', schema='clean_data-proyecto-3')
+    mysql_hook = MySqlHook(mysql_conn_id='clean_data', schema='clean_data-proyecto-4')
     conn = mysql_hook.get_conn()
     query = f"SELECT * FROM `{table_name}`"
     df = pd.read_sql(query, con = conn)
-    if table_name == "clean_diabetes_train":
-        df_positive = df[df['readmitted']==1]
-        df_negative = df[df['readmitted']==0][:df_positive.shape[0]*2]
-        df = pd.concat([df_positive,df_negative],ignore_index=True)
-        print(df.shape)
-    return df.drop('readmitted',axis=1), df['readmitted']
+    return df.drop('price', axis=1), df['price']
 
 def train_model():
-    X_train, y_train = get_data('clean_diabetes_train')
-    X_val, y_val = get_data('clean_diabetes_val')
-    X_test, y_test = get_data('clean_diabetes_test')
+    X_train, y_train = get_data('clean_realtor_train')
+    X_val, y_val = get_data('clean_realtor_val')
+    X_test, y_test = get_data('clean_realtor_test')
 
     categorical_features = X_train.select_dtypes('O').columns
     numeric_features = X_train.select_dtypes(np.number).columns
@@ -38,7 +33,7 @@ def train_model():
     print(categorical_features)
     print(numeric_features)
 
-    model = RandomForestClassifier()
+    model = RandomForestRegressor()
 
     preprocessor = ColumnTransformer(transformers=[
         ('num', StandardScaler(), numeric_features),
@@ -47,7 +42,7 @@ def train_model():
 
     pipe = Pipeline([
         ('preprocessor', preprocessor),
-        ('classifier', model)
+        ('regressor', model)
     ])
 
     os.environ['MLFLOW_S3_ENDPOINT_URL'] = "http://minio:8081"
@@ -56,9 +51,9 @@ def train_model():
 
     # connect to mlflow
     mlflow.set_tracking_uri("http://mlflow:8083")
-    mlflow.set_experiment("mlflow_tracking_model_P3")
+    mlflow.set_experiment("mlflow_tracking_model_P4")
 
-    mlflow.sklearn.autolog(log_model_signatures=True, log_input_examples=True, registered_model_name="diabetes_model")
+    mlflow.sklearn.autolog(log_model_signatures=True, log_input_examples=True, registered_model_name="realtor_model")
 
     with mlflow.start_run(run_name="autolog_pipe_model_reg") as run:
         pipe.fit(X_train, y_train)
@@ -73,7 +68,7 @@ def train_model():
         retrain = False
         try:
             client = MlflowClient()
-            model_name = "diabetes-random-forest-model"
+            model_name = "realtor-random-forest-model"
             model_version_details = client.get_model_version(name=model_name, stages=["Production"])
             run_id = model_version_details.run_id
             for idx, new_value in enumerate(shap_values):
@@ -91,30 +86,29 @@ def train_model():
 
         for idx, value in enumerate(shap_values):
             mlflow.log_metric(f"shap_{idx}", value)
-        mlflow.log_metric("recall_score_val", recall_score(y_val,y_pred_val))
-        print('recall_score_val:', recall_score(y_val,y_pred_val))
-        mlflow.log_metric("recall_score_test", recall_score(y_test,y_pred_test))
-        print('recall_score_val:', recall_score(y_test,y_pred_test))
-        print(classification_report(y_val,y_pred_val))
+        mlflow.log_metric("mae_val", mean_absolute_error(y_val, y_pred_val))
+        print('mae_val:', mean_absolute_error(y_val, y_pred_val))
+        mlflow.log_metric("mae_test", mean_absolute_error(y_test, y_pred_test))
+        print('mae_test:', mean_absolute_error(y_test, y_pred_test))
 
         signature = infer_signature(X_val, y_pred_val)
         mlflow.sklearn.log_model(
             sk_model=pipe,
-            artifact_path="diabetes-model",
+            artifact_path="realtor-model",
             signature=signature,
-            registered_model_name="diabetes-random-forest-model",
+            registered_model_name="realtor-random-forest-model",
         )
     print(X_test[0:3].to_dict('records'))
     """
     client = MlflowClient()
     # create "champion" alias for version 1 of model "example-model"
-    client.set_registered_model_alias("diabetes-random-forest-model", "production")
+    client.set_registered_model_alias("realtor-random-forest-model", "production")
     """
 
 with DAG(
     "train_model",
-    description="Fetch Diabetes data from DB, train model, save artifacts with MlFlow and register model",
-    start_date=datetime(2023,5,1),
+    description="Fetch realtor data from DB, train model, save artifacts with MlFlow and register model",
+    start_date=datetime(2024, 5, 31),
     schedule_interval="@once") as dag:
 
     train_model_task = PythonOperator(task_id="train_model", python_callable=train_model)

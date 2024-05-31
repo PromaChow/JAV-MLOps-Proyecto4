@@ -49,14 +49,7 @@ El código en este repositorio puede ejecutarse siguiendo los siguientes pasos:
 
   ```shell
   docker compose -f docker-compose.yaml --env-file config.env up airflow-init --build
-  ```
-
-  ```shell
   docker compose -f docker-compose.yaml --env-file config.env up --build -d
-  ```
-
-  ```shell
-  docker compose -f docker-compose-kube.yaml --env-file config.env up --build -d
   ```
 
 - Si desea probar los servicios desplegados a traves de la red PUJ con la maquina virtual, cambie "localhost" por 10.43.101.154 en las siguientes indicaciones
@@ -76,14 +69,4 @@ El código en este repositorio puede ejecutarse siguiendo los siguientes pasos:
 - Si desea interrumpir el servicio, puede hacerlo con el siguiente comando:
   ```shell
   docker compose down --volumes --remove-orphans
-  ```
-- Opcionalmente se puede levantar algunos servicios con Kubernetes, para esto se construyeron dos archivos docker-compose. El primero docker-compose.yaml contiene los servicios Airflow, MLFlow y JupyterLab que se esperan seguir ejecutando a través de docker, y el segundo docker-compose-kube.yaml, contiene los servicios que pueden ser desplegados a través de kubernetes. Para desplegar estos servicios se debe seguir los siguientes pasos
-
-- Compile el archivo docker-compose-kube a través de kompose para convertir docker compose a archivos de configuración yaml
-  ```shell
-  kompose convert -f docker-compose.yml -o komposefiles/ --volumes hostPath
-  ```
-- Aplique estas configuraciones agregando cada uno de los archivos de configuración creados
-  ```shell
-  microk8s kubectl apply -f komposefiles/
   ```

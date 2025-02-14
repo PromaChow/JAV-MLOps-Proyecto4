@@ -1,7 +1,7 @@
 # This workflow uses actions to build and publish MLFLOW image on Docker Hub.
 name: ml flow
 run-name: Publish Docker image ml flow
-on: [push]
+on: [push,workflow_dispatch]
 jobs:
   push_to_registry:
     name: Push Docker image ml flow to Docker Hub
